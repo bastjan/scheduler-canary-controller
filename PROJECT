@@ -1,6 +1,6 @@
 domain: my.domain
 layout:
 - go.kubebuilder.io/v3
-projectName: tmp
+projectName: scheduler-canary
 repo: github.com/appuio/scheduler-canary-controller
 version: "3"
