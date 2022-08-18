@@ -1,0 +1,20 @@
+# permissions for end users to view schedulercanaries.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: schedulercanary-viewer-role
+rules:
+- apiGroups:
+  - monitoring.appuio.io
+  resources:
+  - schedulercanaries
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - monitoring.appuio.io
+  resources:
+  - schedulercanaries/status
+  verbs:
+  - get

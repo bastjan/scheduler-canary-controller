@@ -1,0 +1,6 @@
+apiVersion: monitoring.appuio.io/v1beta1
+kind: SchedulerCanary
+metadata:
+  name: schedulercanary-sample
+spec:
+  # TODO(user): Add fields here

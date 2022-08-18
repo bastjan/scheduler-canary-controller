@@ -1,6 +1,16 @@
-domain: my.domain
+domain: appuio.io
 layout:
 - go.kubebuilder.io/v3
 projectName: scheduler-canary
 repo: github.com/appuio/scheduler-canary-controller
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: appuio.io
+  group: monitoring
+  kind: SchedulerCanary
+  path: github.com/appuio/scheduler-canary-controller/api/v1beta1
+  version: v1beta1
 version: "3"
