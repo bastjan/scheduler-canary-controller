@@ -18,6 +18,8 @@ package v1beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -30,16 +32,23 @@ type SchedulerCanarySpec struct {
 
 	// Foo is an example field of SchedulerCanary. Edit schedulercanary_types.go to remove/update
 	Foo string `json:"foo,omitempty"`
+
+	// PodTemplate is the pod template to use for the canary pods.
+	PodTemplate corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
 }
 
 // SchedulerCanaryStatus defines the observed state of SchedulerCanary
 type SchedulerCanaryStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// PodName is the name of the canary pod.
+	PodName string `json:"podName,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="POD",type="string",JSONPath=`.status.podName`
 
 // SchedulerCanary is the Schema for the schedulercanaries API
 type SchedulerCanary struct {

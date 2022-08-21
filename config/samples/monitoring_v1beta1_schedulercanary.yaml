@@ -4,3 +4,20 @@ metadata:
   name: schedulercanary-sample
 spec:
   # TODO(user): Add fields here
+  podTemplate:
+    metadata:
+      labels: {}
+    spec:
+      containers:
+      - command:
+        - date
+        image: busybox
+        imagePullPolicy: Always
+        name: my-job
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
