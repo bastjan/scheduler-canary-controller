@@ -10,7 +10,10 @@ spec:
     spec:
       containers:
       - command:
-        - date
+        - sh
+        - -c
+        args:
+          - date;sleep 5;date
         image: busybox
         imagePullPolicy: Always
         name: my-job

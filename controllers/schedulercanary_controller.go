@@ -18,11 +18,15 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -31,15 +35,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	monitoringv1beta1 "github.com/appuio/scheduler-canary-controller/api/v1beta1"
+	"github.com/appuio/scheduler-canary-controller/podstate"
 )
 
-var podTimeInPending = prometheus.NewSummary(prometheus.SummaryOpts{
-	Name: "scheduler_canary_pod_time_in_pending_seconds",
+var podTimeUnscheduled = prometheus.NewSummary(prometheus.SummaryOpts{
+	Name: "scheduler_canary_pod_time_unscheduled",
 	Help: "Time spent in pending state",
 })
 
+var podTimeUntilAcknowledged = prometheus.NewSummary(prometheus.SummaryOpts{
+	Name: "scheduler_canary_pod_time_until_acknowledged",
+	Help: "Time spent in an unacknowledged state",
+})
+
+var podTimeUntilWaiting = prometheus.NewSummary(prometheus.SummaryOpts{
+	Name: "scheduler_canary_pod_time_until_waiting",
+	Help: "Time spent before pulling images mounting volumes",
+})
+
 func init() {
-	metrics.Registry.MustRegister(podTimeInPending)
+	metrics.Registry.MustRegister(podTimeUnscheduled, podTimeUntilAcknowledged, podTimeUntilWaiting)
 }
 
 // SchedulerCanaryReconciler reconciles a SchedulerCanary object
@@ -77,64 +92,83 @@ func (r *SchedulerCanaryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
-	if instance.Status.PodName != "" {
-		l.Info("Instance has existing pod", "pod", instance.Status.PodName)
-		return r.checkCanaryPod(ctx, instance)
+	podPresent, pod, err := r.findPod(ctx, instance)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if podPresent {
+		return r.checkCanaryPod(ctx, instance, pod)
 	}
 
 	return r.createCanaryPod(ctx, instance)
 }
 
-func (r *SchedulerCanaryReconciler) checkCanaryPod(ctx context.Context, instance *monitoringv1beta1.SchedulerCanary) (ctrl.Result, error) {
-	l := log.FromContext(ctx).WithValues("pod", instance.Status.PodName)
-	l.Info("Checking canary pod")
-
+// hasPod checks if the pod is present in the cluster.
+func (r *SchedulerCanaryReconciler) findPod(ctx context.Context, instance *monitoringv1beta1.SchedulerCanary) (bool, *corev1.Pod, error) {
 	pod := &corev1.Pod{}
-	err := r.Client.Get(ctx, client.ObjectKey{Name: instance.Status.PodName, Namespace: instance.Namespace}, pod)
+	err := r.Client.Get(ctx, client.ObjectKey{Name: podName(instance, "-0"), Namespace: instance.Namespace}, pod)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			l.Info("WARNING: Pod disappeared")
-			instance.Status.PodName = ""
-			return ctrl.Result{}, r.Client.Status().Update(ctx, instance)
+			return false, nil, nil
 		}
-		return ctrl.Result{}, err
+		return false, nil, err
 	}
+	return true, pod, nil
+}
+
+func (r *SchedulerCanaryReconciler) checkCanaryPod(ctx context.Context, instance *monitoringv1beta1.SchedulerCanary, pod *corev1.Pod) (ctrl.Result, error) {
+	l := log.FromContext(ctx).WithValues("pod", pod.Name)
+	l.Info("Checking canary pod")
+
 	if !pod.DeletionTimestamp.IsZero() {
 		// Pod is in the process of being deleted.
 		l.Info("Pod is deleting")
 		return ctrl.Result{}, nil
 	}
 
-	l.Info("Pod found", "phase", pod.Status.Phase)
-	if pod.Status.Phase == corev1.PodSucceeded {
-		l.Info("Canary pod succeeded")
-		d := pod.Status.StartTime.Sub(pod.CreationTimestamp.Time)
-		l.Info("Time spent in pending state", "duration", d, "start", pod.Status.StartTime.Time, "creation", pod.CreationTimestamp.Time)
-		podTimeInPending.Observe(d.Seconds())
-
-		if err := r.Client.Delete(ctx, pod); err != nil {
+	state := podstate.State(pod)
+	if state == podstate.PodCompleted {
+		err := calculateTimes(l, pod)
+		if err != nil {
 			return ctrl.Result{}, err
 		}
-		instance.Status.PodName = ""
-		if err := r.Client.Status().Update(ctx, instance); err != nil {
-			return ctrl.Result{}, err
-		}
-
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, r.Client.Delete(ctx, pod)
 	}
 
-	return ctrl.Result{}, nil
+	err := trackState(pod, state)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	patch, err := json.Marshal(map[string]any{
+		"metadata": map[string]any{
+			"annotations": map[string]any{
+				StateTrackingAnnotation: pod.Annotations[StateTrackingAnnotation],
+			},
+		},
+	})
+
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, r.Client.Patch(ctx, pod, client.RawPatch(types.StrategicMergePatchType, patch))
 }
 
 func (r *SchedulerCanaryReconciler) createCanaryPod(ctx context.Context, instance *monitoringv1beta1.SchedulerCanary) (reconcile.Result, error) {
 	l := log.FromContext(ctx)
 
-	pod, err := buildPodFromTemplate(&instance.Spec.PodTemplate, instance)
+	pod, err := buildPodFromTemplate(&instance.Spec.PodTemplate, instance, "-0")
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	err = controllerutil.SetControllerReference(instance, pod, r.Scheme)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = trackState(pod, podstate.PodCreated)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -146,12 +180,6 @@ func (r *SchedulerCanaryReconciler) createCanaryPod(ctx context.Context, instanc
 	}
 
 	l.Info("Pod created", "pod", pod.Name)
-
-	instance.Status.PodName = pod.Name
-	if err := r.Client.Status().Update(ctx, instance); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	l.Info("Reconciled")
 
 	return ctrl.Result{}, nil
@@ -163,4 +191,75 @@ func (r *SchedulerCanaryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&monitoringv1beta1.SchedulerCanary{}).
 		Owns(&corev1.Pod{}).
 		Complete(r)
+}
+
+func getTrackedStates(pod *corev1.Pod) (TrackedStates, error) {
+	var tr TrackedStates
+
+	if a, exists := pod.Annotations[StateTrackingAnnotation]; exists {
+		if err := json.Unmarshal([]byte(a), &tr); err != nil {
+			return nil, err
+		}
+		return tr, nil
+	}
+
+	return make(TrackedStates), nil
+}
+
+func trackState(pod *corev1.Pod, state podstate.PodState) error {
+	tr, err := getTrackedStates(pod)
+	if err != nil {
+		return err
+	}
+
+	if _, exists := tr[state]; !exists {
+		tr[state] = time.Now()
+	}
+
+	s, err := json.Marshal(tr)
+	pod.Annotations[StateTrackingAnnotation] = string(s)
+	return err
+}
+
+func podName(instance *monitoringv1beta1.SchedulerCanary, suffix string) string {
+	return suffixLimit(instance.Name, suffix)
+}
+
+func calculateTimes(l logr.Logger, pod *corev1.Pod) error {
+	tr, err := getTrackedStates(pod)
+	if err != nil {
+		return err
+	}
+
+	createdTime, ok := tr[podstate.PodCreated]
+	if !ok {
+		l.Info("WARNING: Pod created time not found, skipping calculation")
+		return nil
+	}
+
+	acknowledgedTime, hasAcknowledgedTime := tr[podstate.PodAcknowledged]
+	scheduledTime, hasScheduledTime := tr[podstate.PodScheduled]
+	waitingTime, hasWaitingTime := tr[podstate.PodWaiting]
+
+	if hasScheduledTime {
+		podTimeUnscheduled.Observe(scheduledTime.Sub(createdTime).Seconds())
+	} else if hasAcknowledgedTime {
+		podTimeUnscheduled.Observe(acknowledgedTime.Sub(createdTime).Seconds())
+	} else if hasWaitingTime {
+		podTimeUnscheduled.Observe(waitingTime.Sub(createdTime).Seconds())
+	}
+
+	if hasAcknowledgedTime {
+		podTimeUntilAcknowledged.Observe(acknowledgedTime.Sub(createdTime).Seconds())
+	} else if hasWaitingTime {
+		podTimeUntilAcknowledged.Observe(waitingTime.Sub(createdTime).Seconds())
+	}
+
+	if hasWaitingTime {
+		podTimeUntilWaiting.Observe(waitingTime.Sub(createdTime).Seconds())
+	} else {
+		l.Info("WARNING: No pod waiting time found, skipping calculation")
+	}
+
+	return nil
 }
