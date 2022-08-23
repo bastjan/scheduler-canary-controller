@@ -19,7 +19,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
-	"time"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
@@ -126,7 +126,7 @@ func (r *SchedulerCanaryReconciler) checkCanaryPod(ctx context.Context, instance
 		return ctrl.Result{}, nil
 	}
 
-	state := podstate.State(pod)
+	state := podstate.State(*pod)
 	if state == podstate.PodCompleted {
 		err := calculateTimes(l, pod)
 		if err != nil {
@@ -140,19 +140,7 @@ func (r *SchedulerCanaryReconciler) checkCanaryPod(ctx context.Context, instance
 		return ctrl.Result{}, err
 	}
 
-	patch, err := json.Marshal(map[string]any{
-		"metadata": map[string]any{
-			"annotations": map[string]any{
-				StateTrackingAnnotation: pod.Annotations[StateTrackingAnnotation],
-			},
-		},
-	})
-
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, r.Client.Patch(ctx, pod, client.RawPatch(types.StrategicMergePatchType, patch))
+	return ctrl.Result{}, r.strategicMergePatch(ctx, pod, stateTrackingPatchFromPod(*pod))
 }
 
 func (r *SchedulerCanaryReconciler) createCanaryPod(ctx context.Context, instance *monitoringv1beta1.SchedulerCanary) (reconcile.Result, error) {
@@ -185,40 +173,20 @@ func (r *SchedulerCanaryReconciler) createCanaryPod(ctx context.Context, instanc
 	return ctrl.Result{}, nil
 }
 
+func (r *SchedulerCanaryReconciler) strategicMergePatch(ctx context.Context, obj client.Object, patch map[string]any) error {
+	jp, err := json.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("failed to marshal patch: %w", err)
+	}
+	return r.Client.Patch(ctx, obj, client.RawPatch(types.StrategicMergePatchType, jp))
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *SchedulerCanaryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&monitoringv1beta1.SchedulerCanary{}).
 		Owns(&corev1.Pod{}).
 		Complete(r)
-}
-
-func getTrackedStates(pod *corev1.Pod) (TrackedStates, error) {
-	var tr TrackedStates
-
-	if a, exists := pod.Annotations[StateTrackingAnnotation]; exists {
-		if err := json.Unmarshal([]byte(a), &tr); err != nil {
-			return nil, err
-		}
-		return tr, nil
-	}
-
-	return make(TrackedStates), nil
-}
-
-func trackState(pod *corev1.Pod, state podstate.PodState) error {
-	tr, err := getTrackedStates(pod)
-	if err != nil {
-		return err
-	}
-
-	if _, exists := tr[state]; !exists {
-		tr[state] = time.Now()
-	}
-
-	s, err := json.Marshal(tr)
-	pod.Annotations[StateTrackingAnnotation] = string(s)
-	return err
 }
 
 func podName(instance *monitoringv1beta1.SchedulerCanary, suffix string) string {
