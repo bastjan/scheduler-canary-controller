@@ -127,6 +127,7 @@ func (r *SchedulerCanaryReconciler) checkCanaryPod(ctx context.Context, instance
 	}
 
 	state := podstate.State(*pod)
+	l.Info("Pod is in state", "state", state)
 	if state == podstate.PodCompleted {
 		err := calculateTimes(l, pod)
 		if err != nil {
