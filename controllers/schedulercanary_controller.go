@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus"
@@ -53,8 +54,19 @@ var podTimeUntilWaiting = prometheus.NewSummary(prometheus.SummaryOpts{
 	Help: "Time spent before pulling images mounting volumes",
 })
 
+var podsTimeouted = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "scheduler_canary_pods_timeouted",
+	Help: "Pods that reached the specified .maxPodCompletionTimeout timeout",
+})
+
 func init() {
-	metrics.Registry.MustRegister(podTimeUnscheduled, podTimeUntilAcknowledged, podTimeUntilWaiting)
+	metrics.Registry.MustRegister(
+		podTimeUnscheduled,
+		podTimeUntilAcknowledged,
+		podTimeUntilWaiting,
+
+		podsTimeouted,
+	)
 }
 
 // SchedulerCanaryReconciler reconciles a SchedulerCanary object
@@ -97,7 +109,7 @@ func (r *SchedulerCanaryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 	if podPresent {
-		return r.checkCanaryPod(ctx, instance, pod)
+		return withSafetyRequeue(r.checkCanaryPod(ctx, instance, pod))
 	}
 
 	return r.createCanaryPod(ctx, instance)
@@ -133,6 +145,11 @@ func (r *SchedulerCanaryReconciler) checkCanaryPod(ctx context.Context, instance
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		return ctrl.Result{}, r.Client.Delete(ctx, pod)
+	}
+	if podHasReachedTimeout(*pod, instance.Spec.MaxPodCompletionTimeoutWithDefault()) {
+		l.Info("Pod has reached timeout, deleting")
+		podsTimeouted.Inc()
 		return ctrl.Result{}, r.Client.Delete(ctx, pod)
 	}
 
@@ -231,4 +248,17 @@ func calculateTimes(l logr.Logger, pod *corev1.Pod) error {
 	}
 
 	return nil
+}
+
+func podHasReachedTimeout(pod corev1.Pod, timeout time.Duration) bool {
+	return pod.CreationTimestamp.Add(timeout).Before(time.Now())
+}
+
+// withSafetyRequeue ensures the request is requeued after one minute.
+func withSafetyRequeue(r ctrl.Result, err error) (ctrl.Result, error) {
+	if err != nil || !r.Requeue || r.RequeueAfter == 0 {
+		return r, err
+	}
+
+	return ctrl.Result{RequeueAfter: time.Minute}, nil
 }

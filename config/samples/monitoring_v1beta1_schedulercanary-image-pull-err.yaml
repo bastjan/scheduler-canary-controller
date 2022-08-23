@@ -1,8 +1,9 @@
 apiVersion: monitoring.appuio.io/v1beta1
 kind: SchedulerCanary
 metadata:
-  name: schedulercanary-sample
+  name: schedulercanary-image-not-exists
 spec:
+  maxPodCompletionTimeout: 5m
   podTemplate:
     metadata:
       labels: {}
@@ -13,7 +14,7 @@ spec:
         - -c
         args:
           - date;sleep 5;date
-        image: busybox
+        image: busybox:not-exists
         imagePullPolicy: Always
         name: my-job
         resources: {}

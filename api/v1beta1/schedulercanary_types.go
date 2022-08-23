@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,11 +32,20 @@ type SchedulerCanarySpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of SchedulerCanary. Edit schedulercanary_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// MaxPodCompletionTimeout is the maximum amount of time to wait for a pod to complete.
+	// After the timeout expires, the pod will be deleted, the canary will be marked as failed, and a new canary will be created.
+	// The default is 15 minutes.
+	MaxPodCompletionTimeout time.Duration `json:"maxPodCompletionTimeout,omitempty"`
 
 	// PodTemplate is the pod template to use for the canary pods.
 	PodTemplate corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
+}
+
+func (s SchedulerCanarySpec) MaxPodCompletionTimeoutWithDefault() time.Duration {
+	if s.MaxPodCompletionTimeout == 0 {
+		return 15 * time.Minute
+	}
+	return s.MaxPodCompletionTimeout
 }
 
 // SchedulerCanaryStatus defines the observed state of SchedulerCanary

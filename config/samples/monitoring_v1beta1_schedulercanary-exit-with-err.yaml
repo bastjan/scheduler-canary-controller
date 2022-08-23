@@ -1,7 +1,7 @@
 apiVersion: monitoring.appuio.io/v1beta1
 kind: SchedulerCanary
 metadata:
-  name: schedulercanary-sample
+  name: schedulercanary-exit-err
 spec:
   podTemplate:
     metadata:
@@ -12,7 +12,10 @@ spec:
         - sh
         - -c
         args:
-          - date;sleep 5;date
+          - |-
+            date
+            sleep 5
+            false
         image: busybox
         imagePullPolicy: Always
         name: my-job
