@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/appuio/scheduler-canary-controller/podstate"
+	"github.com/appuio/scheduler-canary-controller/controllers/podstate"
 	corev1 "k8s.io/api/core/v1"
 )
 

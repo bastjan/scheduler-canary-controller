@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/appuio/scheduler-canary-controller/podstate"
+	"github.com/appuio/scheduler-canary-controller/controllers/podstate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"

@@ -36,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	monitoringv1beta1 "github.com/appuio/scheduler-canary-controller/api/v1beta1"
-	"github.com/appuio/scheduler-canary-controller/podstate"
+	"github.com/appuio/scheduler-canary-controller/controllers/podstate"
 )
 
 var podTimeUnscheduled = prometheus.NewSummaryVec(prometheus.SummaryOpts{
