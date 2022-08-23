@@ -39,25 +39,25 @@ import (
 	"github.com/appuio/scheduler-canary-controller/podstate"
 )
 
-var podTimeUnscheduled = prometheus.NewSummary(prometheus.SummaryOpts{
+var podTimeUnscheduled = prometheus.NewSummaryVec(prometheus.SummaryOpts{
 	Name: "scheduler_canary_pod_time_unscheduled",
 	Help: "Time spent in pending state",
-})
+}, []string{"namespace", "name"})
 
-var podTimeUntilAcknowledged = prometheus.NewSummary(prometheus.SummaryOpts{
+var podTimeUntilAcknowledged = prometheus.NewSummaryVec(prometheus.SummaryOpts{
 	Name: "scheduler_canary_pod_time_until_acknowledged",
 	Help: "Time spent in an unacknowledged state",
-})
+}, []string{"namespace", "name"})
 
-var podTimeUntilWaiting = prometheus.NewSummary(prometheus.SummaryOpts{
+var podTimeUntilWaiting = prometheus.NewSummaryVec(prometheus.SummaryOpts{
 	Name: "scheduler_canary_pod_time_until_waiting",
 	Help: "Time spent before pulling images mounting volumes",
-})
+}, []string{"namespace", "name"})
 
-var podsTimeouted = prometheus.NewCounter(prometheus.CounterOpts{
+var podsTimeouted = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Name: "scheduler_canary_pods_timeouted",
 	Help: "Pods that reached the specified .maxPodCompletionTimeout timeout",
-})
+}, []string{"namespace", "name"})
 
 func init() {
 	metrics.Registry.MustRegister(
@@ -141,7 +141,7 @@ func (r *SchedulerCanaryReconciler) checkCanaryPod(ctx context.Context, instance
 	state := podstate.State(*pod)
 	l.Info("Pod is in state", "state", state)
 	if state == podstate.PodCompleted {
-		err := calculateTimes(l, pod)
+		err := calculateTimes(l, instance, pod)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -149,7 +149,7 @@ func (r *SchedulerCanaryReconciler) checkCanaryPod(ctx context.Context, instance
 	}
 	if podHasReachedTimeout(*pod, instance.Spec.MaxPodCompletionTimeoutWithDefault()) {
 		l.Info("Pod has reached timeout, deleting")
-		podsTimeouted.Inc()
+		podsTimeouted.WithLabelValues(instance.Namespace, instance.Name).Inc()
 		return ctrl.Result{}, r.Client.Delete(ctx, pod)
 	}
 
@@ -211,7 +211,7 @@ func podName(instance *monitoringv1beta1.SchedulerCanary, suffix string) string 
 	return suffixLimit(instance.Name, suffix)
 }
 
-func calculateTimes(l logr.Logger, pod *corev1.Pod) error {
+func calculateTimes(l logr.Logger, instance *monitoringv1beta1.SchedulerCanary, pod *corev1.Pod) error {
 	tr, err := getTrackedStates(pod)
 	if err != nil {
 		return err
@@ -227,22 +227,26 @@ func calculateTimes(l logr.Logger, pod *corev1.Pod) error {
 	scheduledTime, hasScheduledTime := tr[podstate.PodScheduled]
 	waitingTime, hasWaitingTime := tr[podstate.PodWaiting]
 
+	usm := podTimeUnscheduled.WithLabelValues(instance.Namespace, instance.Name)
 	if hasScheduledTime {
-		podTimeUnscheduled.Observe(scheduledTime.Sub(createdTime).Seconds())
+		usm.Observe(scheduledTime.Sub(createdTime).Seconds())
 	} else if hasAcknowledgedTime {
-		podTimeUnscheduled.Observe(acknowledgedTime.Sub(createdTime).Seconds())
+		usm.Observe(acknowledgedTime.Sub(createdTime).Seconds())
 	} else if hasWaitingTime {
-		podTimeUnscheduled.Observe(waitingTime.Sub(createdTime).Seconds())
+		usm.Observe(waitingTime.Sub(createdTime).Seconds())
 	}
 
+	uam := podTimeUntilAcknowledged.WithLabelValues(instance.Namespace, instance.Name)
 	if hasAcknowledgedTime {
-		podTimeUntilAcknowledged.Observe(acknowledgedTime.Sub(createdTime).Seconds())
+		uam.Observe(acknowledgedTime.Sub(createdTime).Seconds())
 	} else if hasWaitingTime {
-		podTimeUntilAcknowledged.Observe(waitingTime.Sub(createdTime).Seconds())
+		uam.Observe(waitingTime.Sub(createdTime).Seconds())
 	}
 
 	if hasWaitingTime {
-		podTimeUntilWaiting.Observe(waitingTime.Sub(createdTime).Seconds())
+		podTimeUntilWaiting.
+			WithLabelValues(instance.Namespace, instance.Name).
+			Observe(waitingTime.Sub(createdTime).Seconds())
 	} else {
 		l.Info("WARNING: No pod waiting time found, skipping calculation")
 	}
