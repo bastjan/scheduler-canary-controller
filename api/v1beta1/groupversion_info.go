@@ -15,8 +15,8 @@ limitations under the License.
 */
 
 // Package v1beta1 contains API Schema definitions for the monitoring v1beta1 API group
-//+kubebuilder:object:generate=true
-//+groupName=monitoring.appuio.io
+// +kubebuilder:object:generate=true
+// +groupName=monitoring.appuio.io
 package v1beta1
 
 import (
