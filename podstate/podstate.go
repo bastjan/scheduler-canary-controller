@@ -13,7 +13,7 @@ const (
 	PodCompleted    PodState = "completed"
 )
 
-func State(pod *corev1.Pod) PodState {
+func State(pod corev1.Pod) PodState {
 	if isCompleted(pod) {
 		return PodCompleted
 	}
@@ -37,7 +37,7 @@ func State(pod *corev1.Pod) PodState {
 	return PodCreated
 }
 
-func isScheduled(pod *corev1.Pod) bool {
+func isScheduled(pod corev1.Pod) bool {
 	for _, c := range pod.Status.Conditions {
 		if c.Type == corev1.PodScheduled && c.Status == corev1.ConditionTrue {
 			return true
@@ -46,18 +46,18 @@ func isScheduled(pod *corev1.Pod) bool {
 	return false
 }
 
-func isAcknowledged(pod *corev1.Pod) bool {
+func isAcknowledged(pod corev1.Pod) bool {
 	return pod.Status.StartTime != nil
 }
 
-func isWaiting(pod *corev1.Pod) bool {
+func isWaiting(pod corev1.Pod) bool {
 	return len(pod.Status.ContainerStatuses) > 0
 }
 
-func isRunning(pod *corev1.Pod) bool {
+func isRunning(pod corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodRunning
 }
 
-func isCompleted(pod *corev1.Pod) bool {
+func isCompleted(pod corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
 }
