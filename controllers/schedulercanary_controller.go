@@ -104,6 +104,9 @@ func (r *SchedulerCanaryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
+	// TODO delete labels on instance deletion?
+	initMetrics(instance.Namespace, instance.Name)
+
 	podPresent, pod, err := r.findPod(ctx, instance)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -265,4 +268,13 @@ func withSafetyRequeue(r ctrl.Result, err error) (ctrl.Result, error) {
 	}
 
 	return ctrl.Result{RequeueAfter: time.Minute}, nil
+}
+
+// initMetrics ensures the metrics are present in the output as soon as the instance is created.
+func initMetrics(namespace, name string) {
+	podTimeUnscheduled.WithLabelValues(namespace, name)
+	podTimeUntilAcknowledged.WithLabelValues(namespace, name)
+	podTimeUntilWaiting.WithLabelValues(namespace, name)
+
+	podsTimeouted.WithLabelValues(namespace, name)
 }
