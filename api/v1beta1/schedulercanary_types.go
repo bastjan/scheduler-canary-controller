@@ -35,17 +35,18 @@ type SchedulerCanarySpec struct {
 	// MaxPodCompletionTimeout is the maximum amount of time to wait for a pod to complete.
 	// After the timeout expires, the pod will be deleted, the canary will be marked as failed, and a new canary will be created.
 	// The default is 15 minutes.
-	MaxPodCompletionTimeout time.Duration `json:"maxPodCompletionTimeout,omitempty"`
+	MaxPodCompletionTimeout metav1.Duration `json:"maxPodCompletionTimeout,omitempty"`
 
 	// PodTemplate is the pod template to use for the canary pods.
 	PodTemplate corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
 }
 
 func (s SchedulerCanarySpec) MaxPodCompletionTimeoutWithDefault() time.Duration {
-	if s.MaxPodCompletionTimeout == 0 {
+	d := s.MaxPodCompletionTimeout.Duration
+	if d == 0 {
 		return 15 * time.Minute
 	}
-	return s.MaxPodCompletionTimeout
+	return d
 }
 
 // SchedulerCanaryStatus defines the observed state of SchedulerCanary
