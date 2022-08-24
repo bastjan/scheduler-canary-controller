@@ -40,17 +40,17 @@ import (
 )
 
 var podTimeUnscheduled = prometheus.NewSummaryVec(prometheus.SummaryOpts{
-	Name: "scheduler_canary_pod_time_unscheduled",
+	Name: "scheduler_canary_pod_unscheduled_seconds",
 	Help: "Time spent in pending state",
 }, []string{"namespace", "name"})
 
 var podTimeUntilAcknowledged = prometheus.NewSummaryVec(prometheus.SummaryOpts{
-	Name: "scheduler_canary_pod_time_until_acknowledged",
+	Name: "scheduler_canary_pod_until_acknowledged_seconds",
 	Help: "Time spent in an unacknowledged state",
 }, []string{"namespace", "name"})
 
 var podTimeUntilWaiting = prometheus.NewSummaryVec(prometheus.SummaryOpts{
-	Name: "scheduler_canary_pod_time_until_waiting",
+	Name: "scheduler_canary_pod_until_waiting_seconds",
 	Help: "Time spent before pulling images mounting volumes",
 }, []string{"namespace", "name"})
 
