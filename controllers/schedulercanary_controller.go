@@ -258,6 +258,9 @@ func calculateTimes(l logr.Logger, instance *monitoringv1beta1.SchedulerCanary, 
 }
 
 func podHasReachedTimeout(pod corev1.Pod, timeout time.Duration) bool {
+	if pod.CreationTimestamp.IsZero() {
+		return false
+	}
 	return pod.CreationTimestamp.Add(timeout).Before(time.Now())
 }
 
