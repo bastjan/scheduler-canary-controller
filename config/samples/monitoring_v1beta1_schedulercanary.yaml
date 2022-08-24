@@ -3,6 +3,8 @@ kind: SchedulerCanary
 metadata:
   name: schedulercanary-sample
 spec:
+  interval: 1m
+  maxPodCompletionTimeout: 3m
   podTemplate:
     metadata:
       labels: {}
