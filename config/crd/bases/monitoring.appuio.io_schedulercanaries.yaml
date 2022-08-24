@@ -16,8 +16,8 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.podName
-      name: POD
+    - jsonPath: .status.lastCanaryCreatedAt
+      name: LASTEXEC
       type: string
     name: v1beta1
     schema:
@@ -39,6 +39,10 @@ spec:
           spec:
             description: SchedulerCanarySpec defines the desired state of SchedulerCanary
             properties:
+              interval:
+                description: Interval is the interval at which a canary pod will be
+                  created. The interval is not very precise. The default is 1 minute.
+                type: string
               maxPodCompletionTimeout:
                 description: MaxPodCompletionTimeout is the maximum amount of time
                   to wait for a pod to complete. After the timeout expires, the pod
@@ -7182,6 +7186,12 @@ spec:
             type: object
           status:
             description: SchedulerCanaryStatus defines the observed state of SchedulerCanary
+            properties:
+              lastCanaryCreatedAt:
+                description: LastCanaryCreatedAt is the timestamp of the last canary
+                  creation.
+                format: date-time
+                type: string
             type: object
         type: object
     served: true

@@ -1,27 +1,25 @@
 package controllers
 
 import (
-	"fmt"
-
+	monitoringv1beta1 "github.com/appuio/scheduler-canary-controller/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func buildPodFromTemplate(template *corev1.PodTemplateSpec, parentObject runtime.Object, suffix string) (*corev1.Pod, error) {
-	accessor, err := meta.Accessor(parentObject)
-	if err != nil {
-		return nil, fmt.Errorf("parentObject does not have ObjectMeta, %v", err)
-	}
+func buildPodFromTemplate(template *corev1.PodTemplateSpec, instance *monitoringv1beta1.SchedulerCanary) (*corev1.Pod, error) {
+	labels := copyStringMap(template.Labels)
+	labels[instanceLabel] = instance.Name
+
+	annotations := copyStringMap(template.Annotations)
+	annotations[timeoutAnnotation] = instance.Spec.MaxPodCompletionTimeout.Duration.String()
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   accessor.GetNamespace(),
-			Labels:      copyStringMap(template.Labels),
-			Annotations: copyStringMap(template.Annotations),
-			Name:        suffixLimit(accessor.GetName(), suffix),
-			Finalizers:  copyStringSlice(template.Finalizers),
+			Namespace:    instance.GetNamespace(),
+			Labels:       labels,
+			Annotations:  annotations,
+			GenerateName: suffixLimit(instance.GetName(), "-"),
+			Finalizers:   copyStringSlice(template.Finalizers),
 		},
 	}
 	pod.Spec = *template.Spec.DeepCopy()

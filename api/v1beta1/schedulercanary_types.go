@@ -37,6 +37,11 @@ type SchedulerCanarySpec struct {
 	// The default is 15 minutes.
 	MaxPodCompletionTimeout metav1.Duration `json:"maxPodCompletionTimeout,omitempty"`
 
+	// Interval is the interval at which a canary pod will be created.
+	// The interval is not very precise.
+	// The default is 1 minute.
+	Interval metav1.Duration `json:"interval,omitempty"`
+
 	// PodTemplate is the pod template to use for the canary pods.
 	PodTemplate corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
 }
@@ -49,15 +54,26 @@ func (s SchedulerCanarySpec) MaxPodCompletionTimeoutWithDefault() time.Duration 
 	return d
 }
 
+func (s SchedulerCanarySpec) IntervalWithDefault() time.Duration {
+	d := s.Interval.Duration
+	if d == 0 {
+		return time.Minute
+	}
+	return d
+}
+
 // SchedulerCanaryStatus defines the observed state of SchedulerCanary
 type SchedulerCanaryStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// LastCanaryCreatedAt is the timestamp of the last canary creation.
+	LastCanaryCreatedAt metav1.Time `json:"lastCanaryCreatedAt,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="POD",type="string",JSONPath=`.status.podName`
+//+kubebuilder:printcolumn:name="LASTEXEC",type="string",JSONPath=`.status.lastCanaryCreatedAt`
 
 // SchedulerCanary is the Schema for the schedulercanaries API
 type SchedulerCanary struct {
