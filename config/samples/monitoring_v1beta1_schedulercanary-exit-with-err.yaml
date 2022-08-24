@@ -16,8 +16,7 @@ spec:
             date
             sleep 5
             false
-        image: busybox
-        imagePullPolicy: Always
+        image: curlimages/curl:7.84.0
         name: my-job
         resources: {}
         terminationMessagePath: /dev/termination-log
