@@ -20,48 +20,16 @@ import (
 	"context"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	monitoringv1beta1 "github.com/appuio/scheduler-canary-controller/api/v1beta1"
 	"github.com/appuio/scheduler-canary-controller/controllers/podstate"
 )
-
-var podTimeUnscheduled = prometheus.NewSummaryVec(prometheus.SummaryOpts{
-	Name: "scheduler_canary_pod_unscheduled_seconds",
-	Help: "Time spent in pending state",
-}, []string{"namespace", "name"})
-
-var podTimeUntilAcknowledged = prometheus.NewSummaryVec(prometheus.SummaryOpts{
-	Name: "scheduler_canary_pod_until_acknowledged_seconds",
-	Help: "Time spent in an unacknowledged state",
-}, []string{"namespace", "name"})
-
-var podTimeUntilWaiting = prometheus.NewSummaryVec(prometheus.SummaryOpts{
-	Name: "scheduler_canary_pod_until_waiting_seconds",
-	Help: "Time spent before pulling images mounting volumes",
-}, []string{"namespace", "name"})
-
-var podsTimeouted = prometheus.NewCounterVec(prometheus.CounterOpts{
-	Name: "scheduler_canary_pods_timeouted",
-	Help: "Pods that reached the specified .maxPodCompletionTimeout timeout",
-}, []string{"namespace", "name"})
-
-func init() {
-	metrics.Registry.MustRegister(
-		podTimeUnscheduled,
-		podTimeUntilAcknowledged,
-		podTimeUntilWaiting,
-
-		podsTimeouted,
-	)
-}
 
 // SchedulerCanaryReconciler reconciles a SchedulerCanary object
 type SchedulerCanaryReconciler struct {
@@ -154,13 +122,4 @@ func (r *SchedulerCanaryReconciler) createCanaryPod(ctx context.Context, instanc
 	l.Info("Pod created", "pod", pod.Name)
 	l.Info("Reconciled")
 	return nil
-}
-
-// initMetrics ensures the metrics are present in the output as soon as the instance is created.
-func initMetrics(namespace, name string) {
-	podTimeUnscheduled.WithLabelValues(namespace, name)
-	podTimeUntilAcknowledged.WithLabelValues(namespace, name)
-	podTimeUntilWaiting.WithLabelValues(namespace, name)
-
-	podsTimeouted.WithLabelValues(namespace, name)
 }

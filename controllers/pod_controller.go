@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/appuio/scheduler-canary-controller/controllers/podstate"
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,6 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/appuio/scheduler-canary-controller/controllers/podstate"
 )
 
 const (
@@ -72,23 +74,17 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	instance := pod.GetLabels()[instanceLabel]
 
-	// ensure we check timeouts very earlier so pods still get deleted even if we mess up later
 	timeout, err := timeoutFromPod(pod)
 	if err != nil {
-		l.Error(err, "Pod has no timeout annotation, deleting immediately")
-	}
-	if podHasReachedTimeout(*pod, timeout) {
-		l.Info("Pod has reached timeout, deleting")
-		podsTimeouted.WithLabelValues(pod.Namespace, instance).Inc()
-		return ctrl.Result{}, r.Client.Delete(ctx, pod)
+		l.Error(err, "Pod has no valid timeout annotation, deleting immediately")
 	}
 
+	timedOut := podHasReachedTimeout(*pod, timeout)
 	state := podstate.State(*pod)
-	l.Info("Pod is in state", "state", state)
-	if state == podstate.PodCompleted {
-		err := calculateTimes(l, instance, pod)
-		if err != nil {
-			return ctrl.Result{}, err
+	l.Info("Pod is in state", "state", state, "timedOut", timedOut)
+	if timedOut || state == podstate.PodCompleted {
+		if err := recordSchedulingMetrics(l, instance, pod, timedOut); err != nil {
+			l.Error(err, "Failed to record metrics")
 		}
 		return ctrl.Result{}, r.Client.Delete(ctx, pod)
 	}
@@ -128,44 +124,57 @@ func (r *PodReconciler) strategicMergePatch(ctx context.Context, obj client.Obje
 	return r.Client.Patch(ctx, obj, client.RawPatch(types.StrategicMergePatchType, jp))
 }
 
-func calculateTimes(l logr.Logger, instance string, pod *corev1.Pod) error {
+func recordSchedulingMetrics(l logr.Logger, instance string, pod *corev1.Pod, timedOut bool) error {
 	tr, err := getTrackedStates(pod)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get state tracking timestamps: %w", err)
 	}
 
 	createdTime, ok := tr[podstate.PodCreated]
 	if !ok {
-		l.Info("WARNING: Pod created time not found, skipping calculation")
-		return nil
+		return fmt.Errorf("pod created time not found")
+	}
+
+	metricLabels := prometheus.Labels{"namespace": pod.Namespace, "name": instance}
+
+	cm := podTimeCompleted.MustCurryWith(metricLabels)
+	if timedOut {
+		cm.WithLabelValues(metricTimedOutLabel).Observe(time.Since(createdTime).Seconds())
+	} else {
+		cm.WithLabelValues(metricCompletedLabel).Observe(time.Since(createdTime).Seconds())
 	}
 
 	acknowledgedTime, hasAcknowledgedTime := tr[podstate.PodAcknowledged]
 	scheduledTime, hasScheduledTime := tr[podstate.PodScheduled]
 	waitingTime, hasWaitingTime := tr[podstate.PodWaiting]
 
-	usm := podTimeUnscheduled.WithLabelValues(pod.Namespace, instance)
+	usm := podTimeUnscheduled.MustCurryWith(metricLabels)
 	if hasScheduledTime {
-		usm.Observe(scheduledTime.Sub(createdTime).Seconds())
+		usm.WithLabelValues(metricCompletedLabel).Observe(scheduledTime.Sub(createdTime).Seconds())
 	} else if hasAcknowledgedTime {
-		usm.Observe(acknowledgedTime.Sub(createdTime).Seconds())
+		usm.WithLabelValues(metricCompletedLabel).Observe(acknowledgedTime.Sub(createdTime).Seconds())
 	} else if hasWaitingTime {
-		usm.Observe(waitingTime.Sub(createdTime).Seconds())
+		usm.WithLabelValues(metricCompletedLabel).Observe(waitingTime.Sub(createdTime).Seconds())
+	} else if timedOut {
+		usm.WithLabelValues(metricTimedOutLabel).Observe(time.Since(createdTime).Seconds())
 	}
 
-	uam := podTimeUntilAcknowledged.WithLabelValues(pod.Namespace, instance)
+	uam := podTimeUntilAcknowledged.MustCurryWith(metricLabels)
 	if hasAcknowledgedTime {
-		uam.Observe(acknowledgedTime.Sub(createdTime).Seconds())
+		uam.WithLabelValues(metricCompletedLabel).Observe(acknowledgedTime.Sub(createdTime).Seconds())
 	} else if hasWaitingTime {
-		uam.Observe(waitingTime.Sub(createdTime).Seconds())
+		uam.WithLabelValues(metricCompletedLabel).Observe(waitingTime.Sub(createdTime).Seconds())
+	} else if timedOut {
+		uam.WithLabelValues(metricTimedOutLabel).Observe(time.Since(createdTime).Seconds())
 	}
 
+	ptuw := podTimeUntilWaiting.MustCurryWith(metricLabels)
 	if hasWaitingTime {
-		podTimeUntilWaiting.
-			WithLabelValues(pod.Namespace, instance).
-			Observe(waitingTime.Sub(createdTime).Seconds())
+		ptuw.WithLabelValues(metricCompletedLabel).Observe(waitingTime.Sub(createdTime).Seconds())
+	} else if timedOut {
+		ptuw.WithLabelValues(metricTimedOutLabel).Observe(time.Since(createdTime).Seconds())
 	} else {
-		l.Info("WARNING: No pod waiting time found, skipping calculation")
+		return fmt.Errorf("pod has no waiting time")
 	}
 
 	return nil
