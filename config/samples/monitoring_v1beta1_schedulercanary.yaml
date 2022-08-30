@@ -3,4 +3,24 @@ kind: SchedulerCanary
 metadata:
   name: schedulercanary-sample
 spec:
-  # TODO(user): Add fields here
+  interval: 1m
+  maxPodCompletionTimeout: 3m
+  podTemplate:
+    metadata:
+      labels: {}
+    spec:
+      containers:
+      - command:
+        - sh
+        - -c
+        args:
+          - date
+        image: curlimages/curl:7.84.0
+        name: my-job
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30

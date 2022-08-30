@@ -13,4 +13,7 @@ resources:
   kind: SchedulerCanary
   path: github.com/appuio/scheduler-canary-controller/api/v1beta1
   version: v1beta1
+- controller: true
+  kind: Pod
+  version: v1
 version: "3"

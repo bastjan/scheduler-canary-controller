@@ -1,0 +1,62 @@
+# kubectl get events --field-selector involvedObject.name=blub-1632-r4hgm -oyaml
+apiVersion: v1
+items:
+- apiVersion: v1
+  count: 12
+  eventTime: null
+  firstTimestamp: "2022-08-25T12:49:32Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: blub-1632-r4hgm
+    namespace: default
+    resourceVersion: "612686697"
+    uid: 7114c6ac-c045-48d1-b293-1d9cbff14451
+  kind: Event
+  lastTimestamp: "2022-08-25T12:59:41Z"
+  message: 'failed to assign pod addresses for pod default_blub-1632-r4hgm on node:
+    worker-863b, err: range is full'
+  metadata:
+    creationTimestamp: "2022-08-25T12:49:32Z"
+    name: blub-1632-r4hgm.170e9764e9ea855a
+    namespace: default
+    resourceVersion: "612708259"
+    uid: 90026088-95f1-4c22-974e-613d8d37c886
+  reason: ErrorAddingLogicalPort
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: controlplane
+  type: Warning
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2022-08-25T12:51:37Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: blub-1632-r4hgm
+    namespace: default
+    resourceVersion: "612686688"
+    uid: 7114c6ac-c045-48d1-b293-1d9cbff14451
+  kind: Event
+  lastTimestamp: "2022-08-25T12:51:37Z"
+  message: |-
+    Failed to create pod sandbox: rpc error: code = Unknown desc = failed to create pod network sandbox k8s_blub-1632-r4hgm_default_7114c6ac-c045-48d1-b293-1d9cbff14451_0(b82a515c3214006f22eeed70c144f12f7cb40e5f5bf458e7425e3cabb95a155f): error adding pod default_blub-1632-r4hgm to CNI network "multus-cni-network": plugin type="multus" name="multus-cni-network" failed (add): [default/blub-1632-r4hgm/7114c6ac-c045-48d1-b293-1d9cbff14451:ovn-kubernetes]: error adding container to network "ovn-kubernetes": CNI request failed with status 400: '[default/blub-1632-r4hgm b82a515c3214006f22eeed70c144f12f7cb40e5f5bf458e7425e3cabb95a155f] [default/blub-1632-r4hgm b82a515c3214006f22eeed70c144f12f7cb40e5f5bf458e7425e3cabb95a155f] failed to get pod annotation: timed out waiting for annotations: context deadline exceeded
+    '
+  metadata:
+    creationTimestamp: "2022-08-25T12:51:37Z"
+    name: blub-1632-r4hgm.170e97821b7bcce8
+    namespace: default
+    resourceVersion: "612696033"
+    uid: 706f5890-4e90-4543-89d2-201aff981ecb
+  reason: FailedCreatePodSandBox
+  reportingComponent: ""
+  reportingInstance: ""
+  source:
+    component: kubelet
+    host: worker-863b
+  type: Warning
+kind: List
+metadata:
+  resourceVersion: ""

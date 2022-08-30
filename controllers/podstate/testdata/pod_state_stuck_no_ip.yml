@@ -1,0 +1,128 @@
+# Events:
+#   Warning  ErrorAddingLogicalPort  90s (x11 over 10m)  controlplane  failed to assign pod addresses for pod default_blub-1632-r4hgm on node: worker-863b, err: range is full
+#   Warning  FailedCreatePodSandBox  80s                 kubelet       Failed to create pod sandbox: rpc error: code = Unknown desc = failed to create pod network sandbox k8s_blub-1632-r4hgm_default_7114c6ac-c045-48d1-b293-1d9cbff14451_0(ed9a8582db799b55a99263de5ffcf9d0efaeddf9c96cf7272ee6dff447ea9faf): error adding pod default_blub-1632-r4hgm to CNI network "multus-cni-network": plugin type="multus" name="multus-cni-network" failed (add): [default/blub-1632-r4hgm/7114c6ac-c045-48d1-b293-1d9cbff14451:ovn-kubernetes]: error adding container to network "ovn-kubernetes": CNI request failed with status 400: '[default/blub-1632-r4hgm ed9a8582db799b55a99263de5ffcf9d0efaeddf9c96cf7272ee6dff447ea9faf] [default/blub-1632-r4hgm ed9a8582db799b55a99263de5ffcf9d0efaeddf9c96cf7272ee6dff447ea9faf] failed to get pod annotation: timed out waiting for annotations: context deadline exceeded
+
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    policies.kyverno.io/last-applied-patches: |
+      set-runonce-activedeadlineseconds.set-runonce-activedeadlineseconds.kyverno.io: added
+        /spec/activeDeadlineSeconds
+  creationTimestamp: "2022-08-25T12:48:51Z"
+  finalizers:
+  - batch.kubernetes.io/job-tracking
+  generateName: blub-1632-
+  labels:
+    controller-uid: 1e3a9a1b-af0a-4cd7-843c-c045d4c724b3
+    job-name: blub-1632
+  name: blub-1632-r4hgm
+  namespace: default
+  ownerReferences:
+  - apiVersion: batch/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Job
+    name: blub-1632
+    uid: 1e3a9a1b-af0a-4cd7-843c-c045d4c724b3
+  resourceVersion: "612686697"
+  uid: 7114c6ac-c045-48d1-b293-1d9cbff14451
+spec:
+  activeDeadlineSeconds: 1800
+  containers:
+  - command:
+    - date
+    image: curlimages/curl:7.84.0
+    imagePullPolicy: IfNotPresent
+    name: blub-1632
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-lc2b9
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  imagePullSecrets:
+  - name: default-dockercfg-zd7p6
+  nodeName: worker-863b
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Never
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - name: kube-api-access-lc2b9
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+      - configMap:
+          items:
+          - key: service-ca.crt
+            path: service-ca.crt
+          name: openshift-service-ca.crt
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2022-08-25T12:49:30Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2022-08-25T12:49:30Z"
+    message: 'containers with unready status: [blub-1632]'
+    reason: ContainersNotReady
+    status: "False"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2022-08-25T12:49:30Z"
+    message: 'containers with unready status: [blub-1632]'
+    reason: ContainersNotReady
+    status: "False"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2022-08-25T12:49:30Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - image: curlimages/curl:7.84.0
+    imageID: ""
+    lastState: {}
+    name: blub-1632
+    ready: false
+    restartCount: 0
+    started: false
+    state:
+      waiting:
+        reason: ContainerCreating
+  hostIP: 172.18.200.171
+  phase: Pending
+  qosClass: BestEffort
+  startTime: "2022-08-25T12:49:30Z"
+
