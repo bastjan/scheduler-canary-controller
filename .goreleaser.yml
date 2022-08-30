@@ -1,0 +1,27 @@
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-next"
+dockers:
+- image_templates:
+  - "quay.io/appuio/scheduler-canary-controller:v{{ .Version }}"
+
+  # For prereleases, updating `latest` and the floating tags of the major
+  # version does not make sense. Only the image for the exact version should
+  # be pushed.
+  - "{{ if not .Prerelease }}quay.io/appuio/scheduler-canary-controller:latest{{ end }}"
+
+  - "{{ if .Prerelease }}quay.io/appuio/scheduler-canary-controller:next{{ end }}"
+release:
+  prerelease: auto
