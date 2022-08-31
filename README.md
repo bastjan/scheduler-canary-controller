@@ -1,8 +1,14 @@
-# scheduler-canary
-// TODO(user): Add simple overview of use/purpose
+# scheduler-canary-controller
+
+Runs canary pods and measures state changes in their lifecycle.
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+
+`scheduler-canary-controller` is a Kubernetes controller that runs canary pods and measures state changes in their lifecycle.
+
+Canary pods can be created using the `monitoring.appuio.io.SchedulerCanary` custom resource. See [samples](https://github.com/appuio/scheduler-canary-controller/tree/HEAD/config/samples) for more information.
+
+The canary pods are then tracked by the controller and the results are reported in the [`scheduler_canary_pod_.+` metrics](https://github.com/appuio/scheduler-canary-controller/blob/HEAD/controllers/metrics.go).
 
 ## Getting Started
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
@@ -42,7 +48,8 @@ make undeploy
 ```
 
 ## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
+
+Submit Pull Requests at https://github.com/appuio/scheduler-canary-controller/pulls.
 
 ### How it works
 This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)

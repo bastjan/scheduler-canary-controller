@@ -17,7 +17,11 @@ limitations under the License.
 package v1beta1
 
 import (
+	"time"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -28,18 +32,48 @@ type SchedulerCanarySpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of SchedulerCanary. Edit schedulercanary_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// MaxPodCompletionTimeout is the maximum amount of time to wait for a pod to complete.
+	// After the timeout expires, the pod will be deleted, the canary will be marked as failed, and a new canary will be created.
+	// The default is 15 minutes.
+	MaxPodCompletionTimeout metav1.Duration `json:"maxPodCompletionTimeout,omitempty"`
+
+	// Interval is the interval at which a canary pod will be created.
+	// The interval is not very precise.
+	// The default is 1 minute.
+	Interval metav1.Duration `json:"interval,omitempty"`
+
+	// PodTemplate is the pod template to use for the canary pods.
+	PodTemplate corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
+}
+
+func (s SchedulerCanarySpec) MaxPodCompletionTimeoutWithDefault() time.Duration {
+	d := s.MaxPodCompletionTimeout.Duration
+	if d == 0 {
+		return 15 * time.Minute
+	}
+	return d
+}
+
+func (s SchedulerCanarySpec) IntervalWithDefault() time.Duration {
+	d := s.Interval.Duration
+	if d == 0 {
+		return time.Minute
+	}
+	return d
 }
 
 // SchedulerCanaryStatus defines the observed state of SchedulerCanary
 type SchedulerCanaryStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// LastCanaryCreatedAt is the timestamp of the last canary creation.
+	LastCanaryCreatedAt metav1.Time `json:"lastCanaryCreatedAt,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="LASTEXEC",type="string",JSONPath=`.status.lastCanaryCreatedAt`
 
 // SchedulerCanary is the Schema for the schedulercanaries API
 type SchedulerCanary struct {
