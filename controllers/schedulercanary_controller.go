@@ -59,7 +59,6 @@ func (r *SchedulerCanaryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, nil
 	}
 
-	// TODO delete labels on instance deletion?
 	initMetrics(instance.Namespace, instance.Name)
 
 	nextReconcile := instance.Status.LastCanaryCreatedAt.Add(instance.Spec.IntervalWithDefault())
