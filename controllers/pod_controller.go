@@ -70,6 +70,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	timeout, err := timeoutFromPod(pod)
 	if err != nil {
+		timeout = 0
 		l.Error(err, "Pod has no valid timeout annotation, deleting immediately")
 	}
 

@@ -46,6 +46,9 @@ func trackState(pod *corev1.Pod, state podstate.PodState) error {
 	}
 
 	s, err := json.Marshal(tr)
+	if err != nil {
+		return err
+	}
 	pod.Annotations[StateTrackingAnnotation] = string(s)
-	return err
+	return nil
 }
