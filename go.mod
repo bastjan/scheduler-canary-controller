@@ -7,7 +7,7 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
 	github.com/prometheus/client_golang v1.13.0
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.9.0
 	golang.org/x/exp v0.0.0-20220827204233-334a2380cb91
 	k8s.io/api v0.24.4
 	k8s.io/apimachinery v0.24.4
