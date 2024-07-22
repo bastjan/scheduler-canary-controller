@@ -21,7 +21,7 @@ jobs:
         go-version: ${{ env.GO_VERSION }}
 
     - name: Login to Quay.io
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       with:
         registry: quay.io
         username: ${{ secrets.QUAY_IO_USER }}
