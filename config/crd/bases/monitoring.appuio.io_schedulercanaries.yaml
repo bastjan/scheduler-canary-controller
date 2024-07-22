@@ -43,6 +43,11 @@ spec:
           spec:
             description: SchedulerCanarySpec defines the desired state of SchedulerCanary
             properties:
+              forbidParallelRuns:
+                description: |-
+                  ForbidParallelRuns will prevent the creation of a new canary pod if there is already a canary pod running.
+                  The default is false.
+                type: boolean
               interval:
                 description: |-
                   Interval is the interval at which a canary pod will be created.
