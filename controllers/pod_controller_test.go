@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/component-base/metrics/testutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -86,7 +86,7 @@ var _ = Describe("Pod controller", func() {
 			} {
 				By(fmt.Sprintf("checking %s metric", desc))
 				Eventually(func() int {
-					c, err := testutil.GetHistogramMetricCount(m.With(metricLabels))
+					c, err := GetHistogramMetricCount(m.With(metricLabels))
 					Expect(err).ShouldNot(HaveOccurred())
 					return int(c)
 				}).Should(Equal(1))
@@ -118,7 +118,7 @@ var _ = Describe("Pod controller", func() {
 			} {
 				By(fmt.Sprintf("checking %s metric", desc))
 				Eventually(func() int {
-					c, err := testutil.GetHistogramMetricCount(m.With(metricLabels))
+					c, err := GetHistogramMetricCount(m.With(metricLabels))
 					Expect(err).ShouldNot(HaveOccurred())
 					return int(c)
 				}).Should(Equal(1))
@@ -147,4 +147,22 @@ func checkPodNotFound(ctx context.Context, k8sClient client.Client, namespace, n
 		return true, nil
 	}
 	return false, err
+}
+
+// GetHistogramMetricCount extracts count of all samples from ObserverMetric
+func GetHistogramMetricCount(m ObserverMetric) (uint64, error) {
+	metricProto := &dto.Metric{}
+	if err := m.(Metric).Write(metricProto); err != nil {
+		return 0, fmt.Errorf("error writing m: %v", err)
+	}
+	return metricProto.Histogram.GetSampleCount(), nil
+}
+
+type ObserverMetric interface {
+	Observe(float64)
+}
+
+type Metric interface {
+	Desc() *prometheus.Desc
+	Write(*dto.Metric) error
 }
