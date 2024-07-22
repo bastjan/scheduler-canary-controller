@@ -42,6 +42,10 @@ type SchedulerCanarySpec struct {
 	// The default is 1 minute.
 	Interval metav1.Duration `json:"interval,omitempty"`
 
+	// ForbidParallelRuns will prevent the creation of a new canary pod if there is already a canary pod running.
+	// The default is false.
+	ForbidParallelRuns bool `json:"forbidParallelRuns,omitempty"`
+
 	// PodTemplate is the pod template to use for the canary pods.
 	PodTemplate corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
 }

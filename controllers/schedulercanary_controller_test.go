@@ -70,6 +70,71 @@ var _ = Describe("SchedulerCanary controller", func() {
 
 	})
 
+	Context("ForbidParallelRuns", func() {
+		BeforeEach(func() {
+			ctx := context.Background()
+
+			schedulerCanary := &monitoringv1beta1.SchedulerCanary{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-canary",
+					Namespace: "default",
+				},
+				Spec: monitoringv1beta1.SchedulerCanarySpec{
+					Interval:                metav1.Duration{Duration: time.Millisecond},
+					MaxPodCompletionTimeout: metav1.Duration{Duration: time.Minute},
+					ForbidParallelRuns:      true,
+					PodTemplate: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "scheduler-canary",
+									Image: "busybox",
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, schedulerCanary)).Should(Succeed())
+		})
+
+		It("ForbidParallelRuns: should not create more than one pod", func() {
+			ctx := context.Background()
+
+			Eventually(func() (int, error) {
+				pods := &corev1.PodList{}
+
+				err := k8sClient.List(ctx, pods, client.InNamespace("default"), client.MatchingLabels(map[string]string{
+					instanceLabel: "my-canary",
+				}))
+
+				return len(pods.Items), err
+			}, "10s", "250ms").Should(BeNumerically(">=", 1))
+
+			Consistently(func() (int, error) {
+				pods := &corev1.PodList{}
+
+				err := k8sClient.List(ctx, pods, client.InNamespace("default"), client.MatchingLabels(map[string]string{
+					instanceLabel: "my-canary",
+				}))
+
+				return len(pods.Items), err
+			}, "5s", "250ms").Should(Equal(1))
+
+			Expect(k8sClient.DeleteAllOf(ctx, &corev1.Pod{}, client.InNamespace("default"))).Should(Succeed())
+
+			Eventually(func() (int, error) {
+				pods := &corev1.PodList{}
+
+				err := k8sClient.List(ctx, pods, client.InNamespace("default"), client.MatchingLabels(map[string]string{
+					instanceLabel: "my-canary",
+				}))
+
+				return len(pods.Items), err
+			}, "10s", "250ms").Should(BeNumerically(">=", 1))
+		})
+	})
+
 	AfterEach(func() {
 		ctx := context.Background()
 

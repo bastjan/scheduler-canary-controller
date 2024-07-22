@@ -18,8 +18,10 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -68,6 +70,22 @@ func (r *SchedulerCanaryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{Requeue: true, RequeueAfter: rqi}, nil
 	}
 
+	if instance.Spec.ForbidParallelRuns {
+		// Check if there is already a canary pod running.
+		pods := &corev1.PodList{}
+		if err := r.Client.List(ctx, pods, client.InNamespace(instance.Namespace), client.MatchingLabels{instanceLabel: instance.Name}); err != nil {
+			return ctrl.Result{}, fmt.Errorf("forbidParallelRuns: error checking for already running pods, failed to list pods: %w", err)
+		}
+		if len(pods.Items) > 0 {
+			podNames := make([]string, len(pods.Items))
+			for i, pod := range pods.Items {
+				podNames[i] = pod.Name
+			}
+			l.Info("ForbidParallelRuns: already running pods found, skipping pod creation", "pods", podNames)
+			return ctrl.Result{}, nil
+		}
+	}
+
 	if err := r.createCanaryPod(ctx, instance); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -85,6 +103,7 @@ func (r *SchedulerCanaryReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 func (r *SchedulerCanaryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&monitoringv1beta1.SchedulerCanary{}).
+		Owns(&corev1.Pod{}).
 		Complete(r)
 }
 
