@@ -23,6 +23,7 @@ func TestStatesOverLifecycle(t *testing.T) {
 	assert.Equal(t, podstate.PodRunning, podstate.State(pods["pod_state_4"]))
 	assert.Equal(t, podstate.PodRunning, podstate.State(pods["pod_state_5"]))
 	assert.Equal(t, podstate.PodCompleted, podstate.State(pods["pod_state_6"]))
+	assert.Equal(t, podstate.PodFailed, podstate.State(pods["pod_state_7"]))
 
 	// We might want to detect such errors with a different state.
 	// Stuck while creating pod sandbox.

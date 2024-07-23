@@ -51,52 +51,58 @@ var _ = Describe("Pod controller", func() {
 			Expect(k8sClient.Create(ctx, pod)).Should(Succeed())
 		})
 
-		It("measures state change time on completion and deletes the pod", func() {
-			ctx := context.Background()
+		for _, phase := range []corev1.PodPhase{corev1.PodFailed, corev1.PodSucceeded} {
+			It(fmt.Sprintf("measures state change time on completion %q and deletes the pod", phase), func() {
+				ctx := context.Background()
 
-			By("setting the pod to waiting")
-			{
-				var pod corev1.Pod
-				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: podName}, &pod)).Should(Succeed())
-				pod.Status.ContainerStatuses = []corev1.ContainerStatus{{Name: "scheduler-canary"}}
-				Expect(k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
-			}
+				By("setting the pod to waiting")
+				{
+					var pod corev1.Pod
+					Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: podName}, &pod)).Should(Succeed())
+					pod.Status.ContainerStatuses = []corev1.ContainerStatus{{Name: "scheduler-canary"}}
+					Expect(k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
+				}
 
-			By("waiting for the tracking annotation to be updated")
-			Eventually(func() string {
-				var pod corev1.Pod
-				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: podName}, &pod)).Should(Succeed())
-				return pod.Annotations[StateTrackingAnnotation]
-			}).Should(ContainSubstring(`"waiting"`))
+				By("waiting for the tracking annotation to be updated")
+				Eventually(func() string {
+					var pod corev1.Pod
+					Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: podName}, &pod)).Should(Succeed())
+					return pod.Annotations[StateTrackingAnnotation]
+				}).Should(ContainSubstring(`"waiting"`))
 
-			By("setting the pod status to completed")
-			{
-				var pod corev1.Pod
-				Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: podName}, &pod)).Should(Succeed())
-				pod.Status.Phase = corev1.PodSucceeded
-				Expect(k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
-			}
+				By("setting the pod status to completed")
+				{
+					var pod corev1.Pod
+					Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: podName}, &pod)).Should(Succeed())
+					pod.Status.Phase = phase
+					Expect(k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
+				}
 
-			metricLabels := map[string]string{"namespace": namespace, "name": instanceName, "reason": metricCompletedLabel}
-			for desc, m := range map[string]*prometheus.HistogramVec{
-				"podTimeUnscheduled":       podTimeUnscheduled,
-				"podTimeUntilAcknowledged": podTimeUntilAcknowledged,
-				"podTimeUntilWaiting":      podTimeUntilWaiting,
-				"podTimeCompleted":         podTimeCompleted,
-			} {
-				By(fmt.Sprintf("checking %s metric", desc))
-				Eventually(func() int {
-					c, err := GetHistogramMetricCount(m.With(metricLabels))
-					Expect(err).ShouldNot(HaveOccurred())
-					return int(c)
-				}).Should(Equal(1))
-			}
+				mcl := metricCompletedLabel
+				if phase == corev1.PodFailed {
+					mcl = metricFailedLabel
+				}
+				metricLabels := map[string]string{"namespace": namespace, "name": instanceName, "reason": mcl}
+				for desc, m := range map[string]*prometheus.HistogramVec{
+					"podTimeUnscheduled":       podTimeUnscheduled,
+					"podTimeUntilAcknowledged": podTimeUntilAcknowledged,
+					"podTimeUntilWaiting":      podTimeUntilWaiting,
+					"podTimeCompleted":         podTimeCompleted,
+				} {
+					By(fmt.Sprintf("checking %s metric", desc))
+					Eventually(func() int {
+						c, err := GetHistogramMetricCount(m.With(metricLabels))
+						Expect(err).ShouldNot(HaveOccurred())
+						return int(c)
+					}).Should(Equal(1))
+				}
 
-			By("checking if the pod is deleted")
-			Eventually(func() (bool, error) {
-				return checkPodNotFound(ctx, k8sClient, namespace, podName)
-			}).Should(BeTrue())
-		})
+				By("checking if the pod is deleted")
+				Eventually(func() (bool, error) {
+					return checkPodNotFound(ctx, k8sClient, namespace, podName)
+				}).Should(BeTrue())
+			})
+		}
 
 		It("tracks timed out pods and deletes them", func() {
 			ctx := context.Background()

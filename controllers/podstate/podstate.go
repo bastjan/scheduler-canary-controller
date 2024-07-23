@@ -11,9 +11,14 @@ const (
 	PodWaiting      PodState = "waiting"
 	PodRunning      PodState = "running"
 	PodCompleted    PodState = "completed"
+	PodFailed       PodState = "failed"
 )
 
 func State(pod corev1.Pod) PodState {
+	if isFailed(pod) {
+		return PodFailed
+	}
+
 	if isCompleted(pod) {
 		return PodCompleted
 	}
@@ -60,4 +65,8 @@ func isRunning(pod corev1.Pod) bool {
 
 func isCompleted(pod corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
+}
+
+func isFailed(pod corev1.Pod) bool {
+	return pod.Status.Phase == corev1.PodFailed
 }
