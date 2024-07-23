@@ -1,0 +1,132 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Pod","metadata":{"annotations":{},"name":"test-swi-fail","namespace":"appuio-openshift4-slos"},"spec":{"activeDeadlineSeconds":1800,"affinity":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"node-role.kubernetes.io/app","operator":"Exists"}]}]}}},"containers":[{"args":["false"],"command":["sh","-c"],"image":"image-registry.openshift-image-registry.svc:5000/appuio-openshift4-slos/canary:latest","imagePullPolicy":"Always","name":"date","resources":{}}],"restartPolicy":"Never","schedulerName":"default-scheduler","terminationGracePeriodSeconds":10}}
+    openshift.io/scc: anyuid
+  creationTimestamp: "2024-07-23T15:04:29Z"
+  name: test-swi-fail
+  namespace: appuio-openshift4-slos
+  resourceVersion: "1644002752"
+  uid: 8352075c-1d33-4d5c-a945-0c6d255305e4
+spec:
+  activeDeadlineSeconds: 1800
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: node-role.kubernetes.io/app
+            operator: Exists
+  containers:
+  - args:
+    - "false"
+    command:
+    - sh
+    - -c
+    image: image-registry.openshift-image-registry.svc:5000/appuio-openshift4-slos/canary:latest
+    imagePullPolicy: Always
+    name: date
+    resources: {}
+    securityContext:
+      capabilities:
+        drop:
+        - MKNOD
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-hqmt2
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  imagePullSecrets:
+  - name: default-dockercfg-69ngf
+  nodeName: worker-10db
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Never
+  schedulerName: default-scheduler
+  securityContext:
+    seLinuxOptions:
+      level: s0:c32,c4
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 10
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - name: kube-api-access-hqmt2
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+      - configMap:
+          items:
+          - key: service-ca.crt
+            path: service-ca.crt
+          name: openshift-service-ca.crt
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2024-07-23T15:04:29Z"
+    status: "True"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2024-07-23T15:04:29Z"
+    reason: PodFailed
+    status: "False"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2024-07-23T15:04:29Z"
+    reason: PodFailed
+    status: "False"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2024-07-23T15:04:29Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - containerID: cri-o://d486a29e0a58ed508070d29970bf4aef572d9e39a6f2299bab7af9ade6b6458c
+    image: image-registry.openshift-image-registry.svc:5000/appuio-openshift4-slos/canary:latest
+    imageID: image-registry.openshift-image-registry.svc:5000/appuio-openshift4-slos/canary@sha256:cbe461f2f26e573c5f4296c5f6c904011e3f1296dabf53e73b3f126d689c3463
+    lastState: {}
+    name: date
+    ready: false
+    restartCount: 0
+    started: false
+    state:
+      terminated:
+        containerID: cri-o://d486a29e0a58ed508070d29970bf4aef572d9e39a6f2299bab7af9ade6b6458c
+        exitCode: 1
+        finishedAt: "2024-07-23T15:04:30Z"
+        reason: Error
+        startedAt: "2024-07-23T15:04:30Z"
+  hostIP: 172.18.200.113
+  phase: Failed
+  podIP: 10.128.13.142
+  podIPs:
+  - ip: 10.128.13.142
+  qosClass: BestEffort
+  startTime: "2024-07-23T15:04:29Z"

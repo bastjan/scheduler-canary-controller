@@ -8,6 +8,7 @@ import (
 const (
 	metricTimedOutLabel  = "timed_out"
 	metricCompletedLabel = "completed"
+	metricFailedLabel    = "failed"
 )
 
 var (

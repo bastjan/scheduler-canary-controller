@@ -77,8 +77,8 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	timedOut := podHasReachedTimeout(*pod, timeout)
 	state := podstate.State(*pod)
 	l.Info("Pod is in state", "state", state, "timedOut", timedOut)
-	if timedOut || state == podstate.PodCompleted {
-		if err := recordSchedulingMetrics(l, instance, pod, timedOut); err != nil {
+	if timedOut || state == podstate.PodCompleted || state == podstate.PodFailed {
+		if err := recordSchedulingMetrics(l, instance, pod, timedOut, state == podstate.PodFailed); err != nil {
 			l.Error(err, "Failed to record metrics")
 		}
 		return ctrl.Result{}, r.Client.Delete(ctx, pod)
@@ -119,7 +119,7 @@ func (r *PodReconciler) strategicMergePatch(ctx context.Context, obj client.Obje
 	return r.Client.Patch(ctx, obj, client.RawPatch(types.StrategicMergePatchType, jp))
 }
 
-func recordSchedulingMetrics(l logr.Logger, instance string, pod *corev1.Pod, timedOut bool) error {
+func recordSchedulingMetrics(l logr.Logger, instance string, pod *corev1.Pod, timedOut, failed bool) error {
 	tr, err := getTrackedStates(pod)
 	if err != nil {
 		return fmt.Errorf("failed to get state tracking timestamps: %w", err)
@@ -132,11 +132,16 @@ func recordSchedulingMetrics(l logr.Logger, instance string, pod *corev1.Pod, ti
 
 	metricLabels := prometheus.Labels{"namespace": pod.Namespace, "name": instance}
 
+	completeReason := metricCompletedLabel
+	if failed {
+		completeReason = metricFailedLabel
+	}
+
 	cm := podTimeCompleted.MustCurryWith(metricLabels)
 	if timedOut {
 		cm.WithLabelValues(metricTimedOutLabel).Observe(time.Since(createdTime).Seconds())
 	} else {
-		cm.WithLabelValues(metricCompletedLabel).Observe(time.Since(createdTime).Seconds())
+		cm.WithLabelValues(completeReason).Observe(time.Since(createdTime).Seconds())
 	}
 
 	acknowledgedTime, hasAcknowledgedTime := tr[podstate.PodAcknowledged]
@@ -145,27 +150,27 @@ func recordSchedulingMetrics(l logr.Logger, instance string, pod *corev1.Pod, ti
 
 	usm := podTimeUnscheduled.MustCurryWith(metricLabels)
 	if hasScheduledTime {
-		usm.WithLabelValues(metricCompletedLabel).Observe(scheduledTime.Sub(createdTime).Seconds())
+		usm.WithLabelValues(completeReason).Observe(scheduledTime.Sub(createdTime).Seconds())
 	} else if hasAcknowledgedTime {
-		usm.WithLabelValues(metricCompletedLabel).Observe(acknowledgedTime.Sub(createdTime).Seconds())
+		usm.WithLabelValues(completeReason).Observe(acknowledgedTime.Sub(createdTime).Seconds())
 	} else if hasWaitingTime {
-		usm.WithLabelValues(metricCompletedLabel).Observe(waitingTime.Sub(createdTime).Seconds())
+		usm.WithLabelValues(completeReason).Observe(waitingTime.Sub(createdTime).Seconds())
 	} else if timedOut {
 		usm.WithLabelValues(metricTimedOutLabel).Observe(time.Since(createdTime).Seconds())
 	}
 
 	uam := podTimeUntilAcknowledged.MustCurryWith(metricLabels)
 	if hasAcknowledgedTime {
-		uam.WithLabelValues(metricCompletedLabel).Observe(acknowledgedTime.Sub(createdTime).Seconds())
+		uam.WithLabelValues(completeReason).Observe(acknowledgedTime.Sub(createdTime).Seconds())
 	} else if hasWaitingTime {
-		uam.WithLabelValues(metricCompletedLabel).Observe(waitingTime.Sub(createdTime).Seconds())
+		uam.WithLabelValues(completeReason).Observe(waitingTime.Sub(createdTime).Seconds())
 	} else if timedOut {
 		uam.WithLabelValues(metricTimedOutLabel).Observe(time.Since(createdTime).Seconds())
 	}
 
 	ptuw := podTimeUntilWaiting.MustCurryWith(metricLabels)
 	if hasWaitingTime {
-		ptuw.WithLabelValues(metricCompletedLabel).Observe(waitingTime.Sub(createdTime).Seconds())
+		ptuw.WithLabelValues(completeReason).Observe(waitingTime.Sub(createdTime).Seconds())
 	} else if timedOut {
 		ptuw.WithLabelValues(metricTimedOutLabel).Observe(time.Since(createdTime).Seconds())
 	} else {
