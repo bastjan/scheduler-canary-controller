@@ -1,7 +1,13 @@
-FROM gcr.io/distroless/static:nonroot
+FROM docker.io/library/alpine:3.21 as runtime
 
-WORKDIR /
-COPY scheduler-canary-controller manager
-USER 65532:65532
+RUN \
+  apk add --update --no-cache \
+    bash \
+    curl \
+    ca-certificates \
+    tzdata
 
 ENTRYPOINT ["/manager"]
+COPY scheduler-canary-controller manager
+
+USER 65536:0
